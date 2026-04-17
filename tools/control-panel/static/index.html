@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Robot Control Panel</title>
+  <style>
+    :root{--bg:#08131a;--panel:#0f2430e6;--line:#79c2f233;--text:#ecf7ff;--muted:#91afc1;--accent:#4fe0b4;--accent2:#55b8ff;--warn:#ffbb5c;--danger:#ff7061;--font:"IBM Plex Sans","Segoe UI Variable","Segoe UI",sans-serif;--mono:"IBM Plex Mono","Cascadia Code",monospace}
+    *{box-sizing:border-box}body{margin:0;font-family:var(--font);color:var(--text);background:radial-gradient(circle at top left,#55b8ff30,transparent 30%),radial-gradient(circle at top right,#4fe0b425,transparent 26%),linear-gradient(180deg,#0a1620,#08131a);min-height:100vh}
+    .shell{max-width:1480px;margin:0 auto;padding:24px}.hero,.stack{display:grid;gap:16px}.hero{grid-template-columns:1.5fr 1fr;margin-bottom:16px}.stack{grid-template-columns:1.2fr 1fr}
+    .panel,.hero-card{background:var(--panel);border:1px solid var(--line);border-radius:22px;padding:20px;backdrop-filter:blur(16px);box-shadow:0 24px 80px #0006}.hero-side,.left-stack,.right-stack{display:grid;gap:16px}
+    h1{margin:0 0 8px;font-size:clamp(2rem,4vw,3.1rem);line-height:1.02;letter-spacing:-.04em}.sub{color:var(--muted);line-height:1.55;max-width:60ch}
+    .grid5,.grid3,.grid2,.axis-grid,.logs,.button-grid{display:grid;gap:10px}.grid5{grid-template-columns:repeat(5,minmax(0,1fr));margin-top:18px}.grid3{grid-template-columns:repeat(3,minmax(0,1fr))}.grid2,.axis-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .tile,.row,.axis,.log{background:#ffffff08;border:1px solid #ffffff12;border-radius:16px;padding:12px 14px}.label{font-size:.76rem;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin-bottom:6px}.value{font-size:1.12rem;font-weight:700}.mono{font-family:var(--mono)}
+    .header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px}.title{margin:0;font-size:1.04rem}
+    .pill{border-radius:999px;padding:7px 12px;font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;border:1px solid transparent}.good{background:#4fe0b41a;color:var(--accent);border-color:#4fe0b433}.info{background:#55b8ff1a;color:var(--accent2);border-color:#55b8ff33}.warn{background:#ffbb5c16;color:var(--warn);border-color:#ffbb5c33}.danger{background:#ff706116;color:var(--danger);border-color:#ff706133}
+    button{appearance:none;border:1px solid #ffffff18;background:linear-gradient(180deg,#173446,#0e2430);color:var(--text);border-radius:14px;padding:12px;font:inherit;font-weight:700;cursor:pointer}button:hover{border-color:#4fe0b455}.danger-btn{background:linear-gradient(180deg,#5d2320,#421816);border-color:#ff706144}
+    .button-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.slider{display:grid;grid-template-columns:100px 1fr 54px;gap:12px;align-items:center;margin-top:12px}input[type=range]{width:100%;accent-color:var(--accent)}input[type=checkbox]{transform:scale(1.15);accent-color:var(--accent)}
+    .barrow{display:grid;grid-template-columns:70px 1fr 60px;gap:10px;align-items:center;margin-top:12px}.bar{height:12px;border-radius:999px;background:#ffffff12;overflow:hidden}.fill{height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent));width:0}
+    .row{display:flex;justify-content:space-between;align-items:center;gap:12px}.logs{max-height:540px;overflow:auto}.log{display:grid;grid-template-columns:72px 60px 120px 110px 1fr;font-family:var(--mono);font-size:.82rem}
+    .note{color:var(--muted);line-height:1.6;font-size:.94rem}
+    @media (max-width:1120px){.hero,.stack,.grid5,.grid2,.axis-grid,.button-grid{grid-template-columns:1fr}.log{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <section class="hero">
+      <div class="hero-card">
+        <div class="label">Localhost Control Surface</div>
+        <h1>Robot panel, test harness and gamepad drive</h1>
+        <div class="sub">Browser tarafinda Gamepad API okunur, localhost Rust backend tarafinda motor komutlari, testler, sensor snapshot'lari ve telemetry tutulur. Bugun mock backend ile calisir; yarin ayni API arkasina serial veya Wi-Fi koyabiliriz.</div>
+        <div class="grid5">
+          <div class="tile"><div class="label">Harness</div><div class="value" id="overview-harness">idle</div></div>
+          <div class="tile"><div class="label">Mode</div><div class="value" id="overview-mode">idle</div></div>
+          <div class="tile"><div class="label">Emotion</div><div class="value" id="overview-emotion">neutral</div></div>
+          <div class="tile"><div class="label">Heartbeats</div><div class="value" id="overview-heartbeat">0</div></div>
+          <div class="tile"><div class="label">Updated</div><div class="value mono" id="overview-updated">--:--:--</div></div>
+        </div>
+      </div>
+      <div class="hero-side">
+        <div class="panel">
+          <div class="header"><h2 class="title">Transport</h2><span class="pill good" id="transport-connected">connected</span></div>
+          <div class="tile"><div class="label">Backend</div><div class="value mono" id="transport-backend">mock_robot_transport</div></div>
+          <div class="tile" style="margin-top:10px"><div class="label">Target</div><div class="value mono" id="transport-target">localhost</div></div>
+        </div>
+        <div class="panel">
+          <div class="header"><h2 class="title">Fault</h2><span class="pill info" id="fault-pill">clear</span></div>
+          <div class="note" id="fault-detail">No active fault.</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="stack">
+      <div class="left-stack">
+        <div class="panel">
+          <div class="header"><h2 class="title">Motor Console</h2><span class="pill info" id="motor-command">stop</span></div>
+          <div class="button-grid">
+            <button data-action="forward">Forward</button>
+            <button data-action="stop">Stop</button>
+            <button data-action="backward">Backward</button>
+            <button data-action="turn_left">Turn Left</button>
+            <button class="danger-btn" id="emergency-stop">Emergency Stop</button>
+            <button data-action="turn_right">Turn Right</button>
+          </div>
+          <div class="slider"><div class="label">Throttle</div><input id="throttle-slider" type="range" min="-100" max="100" value="0"><div class="mono" id="throttle-value">0.00</div></div>
+          <div class="slider"><div class="label">Turn</div><input id="turn-slider" type="range" min="-100" max="100" value="0"><div class="mono" id="turn-value">0.00</div></div>
+          <button id="apply-arcade" style="margin-top:12px;width:100%">Apply Arcade Drive</button>
+          <div class="barrow"><div class="label">Left</div><div class="bar"><div class="fill" id="left-fill"></div></div><div class="mono" id="left-output">0.00</div></div>
+          <div class="barrow"><div class="label">Right</div><div class="bar"><div class="fill" id="right-fill"></div></div><div class="mono" id="right-output">0.00</div></div>
+          <div class="grid2" style="margin-top:14px">
+            <div class="row mono"><span>IN1 / GPIO1</span><strong id="gpio-in1">LOW</strong></div>
+            <div class="row mono"><span>IN2 / GPIO2</span><strong id="gpio-in2">LOW</strong></div>
+            <div class="row mono"><span>IN3 / GPIO41</span><strong id="gpio-in3">LOW</strong></div>
+            <div class="row mono"><span>IN4 / GPIO42</span><strong id="gpio-in4">LOW</strong></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="header"><h2 class="title">Robot Tests</h2><span class="pill warn" id="test-running">idle</span></div>
+          <div class="grid3">
+            <button data-test="full_harness">Run Full Harness</button>
+            <button data-test="touch">Touch Test</button>
+            <button data-test="motor">Motor Test</button>
+            <button data-test="display">Display Test</button>
+            <button data-test="audio_in">Audio In Placeholder</button>
+            <button data-test="audio_out">Audio Out Placeholder</button>
+          </div>
+          <div style="margin-top:12px"><span class="pill info" id="test-last-completed">last: none</span></div>
+        </div>
+
+        <div class="panel">
+          <div class="header"><h2 class="title">Sensors and Status</h2><span class="pill good">live snapshot</span></div>
+          <div class="grid2">
+            <label class="row"><span>Pet touch / GPIO5</span><input type="checkbox" id="pet-touch"></label>
+            <label class="row"><span>Record touch / GPIO6</span><input type="checkbox" id="record-touch"></label>
+            <div class="row"><span>Display placeholder</span><strong id="display-ready">READY</strong></div>
+            <div class="row"><span>Audio in placeholder</span><strong id="audio-in-ready">READY</strong></div>
+            <div class="row"><span>Audio out placeholder</span><strong id="audio-out-ready">READY</strong></div>
+            <div class="row"><span>Display message</span><strong class="mono" id="display-message">BOOT</strong></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="right-stack">
+        <div class="panel">
+          <div class="header"><h2 class="title">Gamepad</h2><span class="pill info" id="gamepad-state">disconnected</span></div>
+          <label class="row"><span>Enable live gamepad drive</span><input type="checkbox" id="gamepad-drive-enabled"></label>
+          <div class="tile" style="margin-top:12px"><div class="label">Pad ID</div><div class="value mono" id="gamepad-id">waiting for controller</div></div>
+          <div class="axis-grid" style="margin-top:12px">
+            <div class="axis"><div class="label">Axis 0</div><div class="value mono" id="axis-0">0.00</div></div>
+            <div class="axis"><div class="label">Axis 1</div><div class="value mono" id="axis-1">0.00</div></div>
+            <div class="axis"><div class="label">Axis 2</div><div class="value mono" id="axis-2">0.00</div></div>
+            <div class="axis"><div class="label">Axis 3</div><div class="value mono" id="axis-3">0.00</div></div>
+          </div>
+          <div class="tile" style="margin-top:12px"><div class="label">Buttons</div><div class="value mono" id="buttons-preview">[]</div></div>
+        </div>
+
+        <div class="panel">
+          <div class="header"><h2 class="title">System</h2><span class="pill info">operator controls</span></div>
+          <div class="grid3">
+            <button id="reset-idle">Reset Idle</button>
+            <button id="clear-fault">Clear Fault</button>
+            <button class="danger-btn" id="inject-fault">Inject Fault</button>
+          </div>
+          <div class="note" style="margin-top:14px">Bugun mock backend, yarin gerçek robot bridge. UI ve API bunu destekleyecek sekilde ayrildi.</div>
+        </div>
+
+        <div class="panel">
+          <div class="header"><h2 class="title">Telemetry Feed</h2><span class="pill info" id="telemetry-count">0 lines</span></div>
+          <div class="logs" id="telemetry-list"></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const api={state:()=>fetch("/api/state").then(r=>r.json()),heartbeat:()=>post("/api/heartbeat",{}),motor:a=>post("/api/motors/action",{action:a}),arcade:(t,u)=>post("/api/motors/arcade",{throttle:t,turn:u}),sensors:p=>post("/api/sensors",p),test:t=>post("/api/tests/run",{test:t}),gamepad:p=>post("/api/gamepad",p),system:a=>post("/api/system",{action:a})};
+    function post(url,body){return fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}).then(r=>r.json())}
+    function num(v){return Number(v||0).toFixed(2)}
+    function pill(id,text,tone){const el=document.getElementById(id);el.textContent=text;el.className=`pill ${tone}`}
+    function fill(id,value){document.getElementById(id).style.width=`${Math.abs(Math.max(-1,Math.min(1,Number(value||0))))*100}%`}
+    function render(s){
+      $("#overview-harness").textContent=s.overview.harness_state;$("#overview-mode").textContent=s.overview.robot_mode;$("#overview-emotion").textContent=s.overview.emotion;$("#overview-heartbeat").textContent=s.overview.heartbeat_count;$("#overview-updated").textContent=s.overview.updated_at;
+      $("#transport-backend").textContent=s.transport.backend;$("#transport-target").textContent=s.transport.target;pill("transport-connected",s.transport.connected?"connected":"offline",s.transport.connected?"good":"danger");
+      $("#fault-detail").textContent=s.overview.fault||"No active fault.";pill("fault-pill",s.overview.fault?"fault":"clear",s.overview.fault?"danger":"info");
+      $("#motor-command").textContent=`${s.motors.command} / ${s.motors.source}`;$("#left-output").textContent=num(s.motors.left_output);$("#right-output").textContent=num(s.motors.right_output);fill("left-fill",s.motors.left_output);fill("right-fill",s.motors.right_output);
+      $("#gpio-in1").textContent=s.motors.gpio.in1?"HIGH":"LOW";$("#gpio-in2").textContent=s.motors.gpio.in2?"HIGH":"LOW";$("#gpio-in3").textContent=s.motors.gpio.in3?"HIGH":"LOW";$("#gpio-in4").textContent=s.motors.gpio.in4?"HIGH":"LOW";
+      $("#pet-touch").checked=s.sensors.pet_touch;$("#record-touch").checked=s.sensors.record_touch;$("#display-ready").textContent=s.sensors.display_ready?"READY":"DOWN";$("#audio-in-ready").textContent=s.sensors.audio_in_placeholder_ready?"READY":"DOWN";$("#audio-out-ready").textContent=s.sensors.audio_out_placeholder_ready?"READY":"DOWN";$("#display-message").textContent=s.sensors.display_message;
+      pill("test-running",s.tests.running?`running: ${s.tests.running}`:"idle",s.tests.running?"warn":"info");$("#test-last-completed").textContent=`last: ${s.tests.last_completed||"none"}`;
+      pill("gamepad-state",s.gamepad.connected?"connected":"disconnected",s.gamepad.connected?"good":"info");$("#gamepad-id").textContent=s.gamepad.id||"waiting for controller";$("#gamepad-drive-enabled").checked=s.gamepad.driving_enabled;
+      for(let i=0;i<4;i+=1){$(`#axis-${i}`).textContent=num(s.gamepad.axes[i]||0)} $("#buttons-preview").textContent=JSON.stringify((s.gamepad.buttons||[]).slice(0,8).map(v=>Number(v).toFixed(2)));
+      $("#telemetry-list").innerHTML=s.telemetry.slice().reverse().map(e=>`<div class="log"><span>${e.timestamp}</span><span>${e.level}</span><span>${e.component}</span><span>${e.action}</span><span>${e.detail}</span></div>`).join(""); $("#telemetry-count").textContent=`${s.telemetry.length} lines`;
+    }
+    function $(q){return document.querySelector(q)}
+    async function syncSensors(){render(await api.sensors({pet_touch:$("#pet-touch").checked,record_touch:$("#record-touch").checked}))}
+    async function syncGamepad(){const pads=navigator.getGamepads?navigator.getGamepads():[];const pad=pads&&pads[0];const enabled=$("#gamepad-drive-enabled").checked;if(!pad){render(await api.gamepad({connected:false,driving_enabled:enabled,id:null,axes:[],buttons:[]}));return}render(await api.gamepad({connected:true,driving_enabled:enabled,id:pad.id,axes:Array.from(pad.axes||[]),buttons:Array.from(pad.buttons||[]).map(b=>b.value)}))}
+    document.querySelectorAll("[data-action]").forEach(b=>b.addEventListener("click",async()=>render(await api.motor(b.dataset.action))));
+    document.querySelectorAll("[data-test]").forEach(b=>b.addEventListener("click",async()=>render(await api.test(b.dataset.test))));
+    $("#apply-arcade").addEventListener("click",async()=>render(await api.arcade(Number($("#throttle-slider").value)/100,Number($("#turn-slider").value)/100)));
+    $("#throttle-slider").addEventListener("input",e=>$("#throttle-value").textContent=num(Number(e.target.value)/100)); $("#turn-slider").addEventListener("input",e=>$("#turn-value").textContent=num(Number(e.target.value)/100));
+    $("#pet-touch").addEventListener("change",syncSensors); $("#record-touch").addEventListener("change",syncSensors);
+    $("#inject-fault").addEventListener("click",async()=>render(await api.system("inject_fault"))); $("#clear-fault").addEventListener("click",async()=>render(await api.system("clear_fault"))); $("#reset-idle").addEventListener("click",async()=>render(await api.system("reset_idle"))); $("#emergency-stop").addEventListener("click",async()=>render(await api.system("emergency_stop")));
+    window.addEventListener("gamepadconnected",syncGamepad); window.addEventListener("gamepaddisconnected",syncGamepad); $("#gamepad-drive-enabled").addEventListener("change",syncGamepad);
+    setInterval(()=>api.heartbeat().then(render).catch(console.error),2500); setInterval(()=>api.state().then(render).catch(console.error),500); setInterval(()=>syncGamepad().catch(console.error),140); api.state().then(render).catch(console.error);
+  </script>
+</body>
+</html>

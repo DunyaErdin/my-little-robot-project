@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Robot Kontrol Paneli</title>
+  <style>
+    :root{--bg:#0b1417;--panel:#132126;--panel2:#102d35;--line:#ffffff1f;--text:#eef8fa;--muted:#9ab4bc;--good:#59d59a;--warn:#ffbe63;--bad:#ff736b;--info:#6fc2ff;--mono:"IBM Plex Mono","Cascadia Code",monospace;--sans:"IBM Plex Sans","Segoe UI",sans-serif}
+    *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top left,#1b4f5a55,transparent 24%),linear-gradient(180deg,#081114,#0b1417);color:var(--text);font-family:var(--sans)}
+    .page{max-width:1480px;margin:0 auto;padding:20px}.grid{display:grid;gap:16px}.hero{grid-template-columns:1.5fr 1fr}.split{grid-template-columns:1.2fr .8fr}.card{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:20px;padding:18px;box-shadow:0 20px 56px #0006}
+    h1,h2,h3,p{margin:0}.sub{color:var(--muted);line-height:1.55;margin-top:10px}.title{font-size:1.05rem}.section{margin-top:16px}.label{font-size:.76rem;text-transform:uppercase;letter-spacing:.12em;color:var(--muted)}.value{font-size:1.05rem;font-weight:700}.mono{font-family:var(--mono)}
+    .kpi,.tiles,.actions,.motor-grid,.checks,.test-grid{display:grid;gap:10px}.kpi{grid-template-columns:repeat(5,minmax(0,1fr));margin-top:14px}.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}.actions{grid-template-columns:repeat(3,minmax(0,1fr))}.motor-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.checks{grid-template-columns:repeat(3,minmax(0,1fr))}.test-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .tile,.row,.test-card,.log,.pin-head,.pin-row{background:#ffffff08;border:1px solid #ffffff14;border-radius:14px;padding:12px}.row{display:flex;justify-content:space-between;align-items:center;gap:12px}.stack{display:grid;gap:10px}
+    .head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}.pill{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;padding:7px 12px;font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;border:1px solid transparent}
+    .good{background:#59d59a1b;color:var(--good);border-color:#59d59a3b}.warn{background:#ffbe6317;color:var(--warn);border-color:#ffbe633b}.bad{background:#ff736b1a;color:var(--bad);border-color:#ff736b3b}.info{background:#6fc2ff17;color:var(--info);border-color:#6fc2ff3b}
+    button{appearance:none;border:1px solid #ffffff1a;background:linear-gradient(180deg,#16333a,#102228);color:var(--text);border-radius:12px;padding:12px;font:inherit;font-weight:700;cursor:pointer}
+    button:hover:enabled{border-color:#59d59a4f}button:disabled{opacity:.45;cursor:not-allowed}.danger{background:linear-gradient(180deg,#662927,#441817);border-color:#ff736b45}
+    .slider{display:grid;grid-template-columns:90px 1fr 64px;gap:12px;align-items:center}.bar{height:11px;border-radius:999px;background:#ffffff12;overflow:hidden}.fill{height:100%;background:linear-gradient(90deg,var(--info),var(--good));width:0}
+    input[type=range]{width:100%;accent-color:var(--good)}input[type=checkbox]{transform:scale(1.08);accent-color:var(--good)}
+    .pin-table{display:grid;gap:8px}.pin-head,.pin-row{display:grid;grid-template-columns:140px 76px 120px 76px 86px 130px 140px 1fr 1.2fr;gap:10px;font-size:.87rem}.pin-head{color:var(--muted);font-weight:700;text-transform:uppercase;font-size:.74rem}
+    .tests,.logs{display:grid;gap:10px}.test-card{display:grid;gap:10px}.test-card button{width:100%}.small{font-size:.88rem;color:var(--muted);line-height:1.5}.list{display:grid;gap:8px;padding-left:18px;margin:0}.logs{max-height:520px;overflow:auto}.log{display:grid;grid-template-columns:92px 58px 110px 110px 1fr;gap:10px;font-family:var(--mono);font-size:.8rem}
+    .muted{color:var(--muted)}.ok{color:var(--good)}.warn-text{color:var(--warn)}.bad-text{color:var(--bad)}.test-top{display:flex;justify-content:space-between;gap:10px;align-items:center}
+    @media (max-width:1220px){.hero,.split,.kpi,.checks,.test-grid,.actions,.tiles,.motor-grid{grid-template-columns:1fr}.pin-head,.pin-row,.log{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="grid hero">
+      <div class="card">
+        <div class="label">ESP32-S3 Robot Test Harnesi</div>
+        <h1>Kontrol ve Ön Kontrol Paneli</h1>
+        <p class="sub">Bu panel doğrudan ESP32-S3 SoftAP üzerinden servis edilir. Amaç, breadboard üzerindeki kablolamayı dürüstçe görünür kılmak, otomatik doğrulanabilen hatları taramak ve doğrulanmamış donanım için testleri güvenli biçimde kilitlemektir.</p>
+        <div class="kpi">
+          <div class="tile"><div class="label">Harness</div><div class="value" id="overview-harness">Başlatılıyor</div></div>
+          <div class="tile"><div class="label">Mod</div><div class="value" id="overview-mode">Başlatılıyor</div></div>
+          <div class="tile"><div class="label">Duygu</div><div class="value" id="overview-emotion">Odaklı</div></div>
+          <div class="tile"><div class="label">Heartbeat</div><div class="value" id="overview-heartbeat">0</div></div>
+          <div class="tile"><div class="label">Güncelleme</div><div class="value mono" id="overview-updated">T+0.000s</div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="head"><h2 class="title">Bağlantı</h2><span class="pill info" id="transport-state">Bekleniyor</span></div>
+        <div class="stack">
+          <div class="row"><span>Backend</span><strong class="mono" id="transport-backend">esp32_softap_http</strong></div>
+          <div class="row"><span>Adres</span><strong class="mono" id="transport-target">starting</strong></div>
+          <div class="row"><span>SSID</span><strong class="mono" id="transport-ssid">robot-panel-s3</strong></div>
+          <div class="row"><span>Şifre</span><strong class="mono" id="transport-pass">robotpanel123</strong></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="grid split section">
+      <div class="card">
+        <div class="head"><h2 class="title">POST / Ön Kontrol</h2><span class="pill warn" id="inspection-pill">Beklemede</span></div>
+        <p class="small" id="inspection-summary">Henüz ön kontrol yapılmadı.</p>
+        <div class="actions section">
+          <button id="inspection-scan">Ön Kontrol Taramasını Başlat</button>
+          <button id="reset-idle">Boşa Al / Dur</button>
+          <button class="danger" id="emergency-stop">Acil Durdur</button>
+        </div>
+        <div class="tiles section">
+          <div class="tile"><div class="label">Son Tarama</div><div class="value mono" id="inspection-time">T+0.000s</div></div>
+          <div class="tile"><div class="label">POST Sonucu</div><div class="value" id="inspection-result">Beklemede</div></div>
+        </div>
+        <h3 class="title section">Manuel Doğrulama Girdileri</h3>
+        <div class="checks section">
+          <label class="row"><span>Motor sürücüsü bağlı</span><input type="checkbox" id="manual-motor"></label>
+          <label class="row"><span>Mikrofon bağlı</span><input type="checkbox" id="manual-mic"></label>
+          <label class="row"><span>Hoparlör / amfi bağlı</span><input type="checkbox" id="manual-speaker"></label>
+        </div>
+        <h3 class="title section">Sınırlar</h3>
+        <ul class="list small" id="limitations-list"></ul>
+      </div>
+
+      <div class="card">
+        <div class="head"><h2 class="title">Canlı Durum</h2><span class="pill info" id="fault-pill">Temiz</span></div>
+        <div class="stack">
+          <div class="row"><span>Pet touch / GPIO5</span><strong id="pet-touch">LOW</strong></div>
+          <div class="row"><span>Kayıt touch / GPIO6</span><strong id="record-touch">LOW</strong></div>
+          <div class="row"><span>Pet touch görüldü</span><strong id="pet-touch-seen">Hayır</strong></div>
+          <div class="row"><span>Kayıt touch görüldü</span><strong id="record-touch-seen">Hayır</strong></div>
+          <div class="row"><span>OLED hazır</span><strong id="display-ready">Bekleniyor</strong></div>
+          <div class="row"><span>Mikrofon placeholder</span><strong id="audio-in-ready">Bekleniyor</strong></div>
+          <div class="row"><span>Hoparlör placeholder</span><strong id="audio-out-ready">Bekleniyor</strong></div>
+          <div class="row"><span>Ekran mesajı</span><strong class="mono" id="display-message">BOOT</strong></div>
+        </div>
+        <p class="small section" id="fault-detail">Aktif fault yok.</p>
+      </div>
+    </section>
+
+    <section class="card section">
+      <div class="head"><h2 class="title">Tam Pin Haritası</h2><span class="pill info" id="pins-count">0 pin</span></div>
+      <div class="pin-table">
+        <div class="pin-head">
+          <span>Pin</span><span>GPIO</span><span>Rol</span><span>Yön</span><span>Sinyal</span><span>Durum</span><span>Doğrulama</span><span>Gerekli Testler</span><span>Detay</span>
+        </div>
+        <div id="pin-rows"></div>
+      </div>
+    </section>
+
+    <section class="grid split section">
+      <div class="card">
+        <div class="head"><h2 class="title">Test Konsolu</h2><span class="pill info" id="test-running">Boşta</span></div>
+        <div class="test-grid" id="test-report-list"></div>
+      </div>
+
+      <div class="card">
+        <div class="head"><h2 class="title">Motor Konsolu</h2><span class="pill info" id="motor-command">Dur</span></div>
+        <p class="small" id="motor-block-reason">Motor komutları için durum bekleniyor.</p>
+        <div class="actions section">
+          <button data-action="forward">İleri</button>
+          <button data-action="stop">Dur</button>
+          <button data-action="backward">Geri</button>
+          <button data-action="turn_left">Sola Dön</button>
+          <button data-action="turn_right">Sağa Dön</button>
+          <button id="apply-arcade">Arcade Sürüş Uygula</button>
+        </div>
+        <div class="slider section"><div class="label">Gaz</div><input id="throttle-slider" type="range" min="-100" max="100" value="0"><div class="mono" id="throttle-value">0.00</div></div>
+        <div class="slider"><div class="label">Dönüş</div><input id="turn-slider" type="range" min="-100" max="100" value="0"><div class="mono" id="turn-value">0.00</div></div>
+        <div class="motor-grid section">
+          <div class="tile"><div class="label">Sol Çıkış</div><div class="value mono" id="left-output">0.00</div><div class="bar section"><div class="fill" id="left-fill"></div></div></div>
+          <div class="tile"><div class="label">Sağ Çıkış</div><div class="value mono" id="right-output">0.00</div><div class="bar section"><div class="fill" id="right-fill"></div></div></div>
+        </div>
+        <div class="tiles section">
+          <div class="row mono"><span>IN1 / GPIO1</span><strong id="gpio-in1">LOW</strong></div>
+          <div class="row mono"><span>IN2 / GPIO2</span><strong id="gpio-in2">LOW</strong></div>
+          <div class="row mono"><span>IN3 / GPIO41</span><strong id="gpio-in3">LOW</strong></div>
+          <div class="row mono"><span>IN4 / GPIO42</span><strong id="gpio-in4">LOW</strong></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="grid split section">
+      <div class="card">
+        <div class="head"><h2 class="title">Gamepad</h2><span class="pill info" id="gamepad-state">Bağlı Değil</span></div>
+        <label class="row"><span>Canlı gamepad sürüşünü aç</span><input type="checkbox" id="gamepad-drive-enabled"></label>
+        <div class="stack section">
+          <div class="row"><span>Kimlik</span><strong class="mono" id="gamepad-id">Bekleniyor</strong></div>
+          <div class="row"><span>Axis 0</span><strong class="mono" id="axis-0">0.00</strong></div>
+          <div class="row"><span>Axis 1</span><strong class="mono" id="axis-1">0.00</strong></div>
+          <div class="row"><span>Axis 2</span><strong class="mono" id="axis-2">0.00</strong></div>
+          <div class="row"><span>Axis 3</span><strong class="mono" id="axis-3">0.00</strong></div>
+          <div class="row"><span>Düğmeler</span><strong class="mono" id="buttons-preview">[]</strong></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="head"><h2 class="title">Telemetri</h2><span class="pill info" id="telemetry-count">0 satır</span></div>
+        <div class="logs" id="telemetry-list"></div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const api={
+      state:()=>fetch("/api/state").then(r=>r.json()),
+      heartbeat:()=>post("/api/heartbeat",{}),
+      inspectionScan:()=>post("/api/inspection/scan",{}),
+      inspectionManual:body=>post("/api/inspection/manual",body),
+      motor:action=>post("/api/motors/action",{action}),
+      arcade:(throttle,turn)=>post("/api/motors/arcade",{throttle,turn}),
+      test:test=>post("/api/tests/run",{test}),
+      gamepad:payload=>post("/api/gamepad",payload),
+      system:action=>post("/api/system",{action})
+    };
+
+    const labels={
+      harness:{boot:"Önyükleme",idle:"Beklemede",test_touch:"Dokunmatik Testi",test_motor:"Motor Testi",test_display:"Ekran Testi",test_audio_in_placeholder:"Mikrofon Hazırlığı",test_audio_out_placeholder:"Hoparlör Hazırlığı",fault:"Arıza"},
+      mode:{booting:"Başlatılıyor",idle:"Beklemede",diagnostics:"Diagnostik",faulted:"Arızalı"},
+      emotion:{neutral:"Nötr",focused:"Odaklı",curious:"Meraklı",alert:"Alarm"},
+      test:{full_harness:"Tam Test Harnesi",touch:"Dokunmatik Testi",motor:"Motor Testi",display:"Ekran Testi",audio_in:"Mikrofon Hazırlık Testi",audio_out:"Hoparlör Hazırlık Testi"},
+      motion:{stop:"Dur",forward:"İleri",backward:"Geri",turn_left:"Sola Dön",turn_right:"Sağa Dön",arcade_drive:"Arcade Sürüş"},
+      source:{safety:"Güvenlik",panel_button:"Panel",slider:"Slider",gamepad:"Gamepad",test_harness:"Test Harnesi"},
+      testState:{idle:"Hazır",running:"Çalışıyor",passed:"Başarılı",failed:"Başarısız",blocked:"Kilitli"},
+      pinStatus:{present:"Bağlı",absent:"Yok",manual_confirmed:"Operatör Onaylı",manual_required:"Onay Bekliyor",unknown:"Bilinmiyor"},
+      verify:{automatic_probe:"Otomatik Prob",live_signal:"Canlı Sinyal",manual_ack:"Manuel Onay",unverifiable:"Doğrulanamaz"}
+    };
+
+    const $=selector=>document.querySelector(selector);
+    const num=value=>Number(value||0).toFixed(2);
+    const allMotionButtons=()=>Array.from(document.querySelectorAll("[data-action], #apply-arcade, #throttle-slider, #turn-slider, #gamepad-drive-enabled"));
+    const manualPayload=()=>({
+      motor_driver_wired:$("#manual-motor").checked,
+      microphone_wired:$("#manual-mic").checked,
+      speaker_wired:$("#manual-speaker").checked
+    });
+
+    function post(url,body){
+      return fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}).then(r=>r.json());
+    }
+
+    function pill(id,text,tone){
+      const el=document.getElementById(id);
+      el.textContent=text;
+      el.className=`pill ${tone}`;
+    }
+
+    function toneForTestState(state){
+      if(state==="passed") return "good";
+      if(state==="failed") return "bad";
+      if(state==="blocked") return "warn";
+      if(state==="running") return "warn";
+      return "info";
+    }
+
+    function translate(group,key){
+      return (labels[group]&&labels[group][key])||key||"-";
+    }
+
+    function fill(id,value){
+      document.getElementById(id).style.width=`${Math.abs(Math.max(-1,Math.min(1,Number(value||0))))*100}%`;
+    }
+
+    function renderPins(pins){
+      $("#pin-rows").innerHTML=(pins||[]).map(pin=>`
+        <div class="pin-row">
+          <strong>${pin.label}</strong>
+          <span class="mono">GPIO${pin.gpio}</span>
+          <span>${pin.role}</span>
+          <span>${pin.direction}</span>
+          <span class="mono">${pin.signal}</span>
+          <span>${translate("pinStatus",pin.connection_status)}</span>
+          <span>${translate("verify",pin.verification_method)}</span>
+          <span>${(pin.required_by||[]).join(", ")}</span>
+          <span>${pin.detail}</span>
+        </div>
+      `).join("");
+      $("#pins-count").textContent=`${(pins||[]).length} pin`;
+    }
+
+    function renderTests(snapshot){
+      const reports=snapshot.tests.reports||[];
+      $("#test-report-list").innerHTML=reports.map(report=>`
+        <div class="test-card">
+          <div class="test-top">
+            <strong>${translate("test",report.test)}</strong>
+            <span class="pill ${toneForTestState(report.state)}">${translate("testState",report.state)}</span>
+          </div>
+          <div class="small">${report.last_detail}</div>
+          <div class="small muted">Son güncelleme: <span class="mono">${report.last_updated}</span></div>
+          <div class="small ${report.run_allowed?"ok":"warn-text"}">${report.run_allowed?"Çalıştırılabilir":"Kilitli"}</div>
+          <div class="small">${report.blocked_reason||"Bu test için aktif kilit yok."}</div>
+          <button data-test="${report.test}" ${report.run_allowed?"":"disabled"} title="${report.blocked_reason||""}">Testi Çalıştır</button>
+        </div>
+      `).join("");
+
+      const running=snapshot.tests.running;
+      pill("test-running",running?`Aktif: ${translate("test",running)}`:"Boşta",running?"warn":"info");
+    }
+
+    function renderTelemetry(entries){
+      const rows=(entries||[]).slice().reverse().map(entry=>`
+        <div class="log">
+          <span>${entry.timestamp}</span>
+          <span>${entry.level}</span>
+          <span>${entry.component}</span>
+          <span>${entry.action}</span>
+          <span>${entry.detail}</span>
+        </div>
+      `).join("");
+      $("#telemetry-list").innerHTML=rows;
+      $("#telemetry-count").textContent=`${(entries||[]).length} satır`;
+    }
+
+    function applyMotionAvailability(snapshot){
+      const allowed=snapshot.controls.motion_run_allowed;
+      const reason=snapshot.controls.motion_blocked_reason||"Motor komutları hazır.";
+      $("#motor-block-reason").textContent=reason;
+      allMotionButtons().forEach(el=>{
+        if(el.id==="gamepad-drive-enabled"){
+          el.disabled=!allowed;
+        }else if(el.dataset.action==="stop"){
+          el.disabled=false;
+          el.title="";
+        }else{
+          el.disabled=!allowed;
+          el.title=allowed?"":reason;
+        }
+      });
+    }
+
+    function render(snapshot){
+      $("#overview-harness").textContent=translate("harness",snapshot.overview.harness_state);
+      $("#overview-mode").textContent=translate("mode",snapshot.overview.robot_mode);
+      $("#overview-emotion").textContent=translate("emotion",snapshot.overview.emotion);
+      $("#overview-heartbeat").textContent=snapshot.overview.heartbeat_count;
+      $("#overview-updated").textContent=snapshot.overview.updated_at;
+
+      pill("transport-state",snapshot.transport.connected?"Bağlı":"Kapalı",snapshot.transport.connected?"good":"bad");
+      $("#transport-backend").textContent=snapshot.transport.backend;
+      $("#transport-target").textContent=snapshot.transport.target;
+      $("#transport-ssid").textContent=snapshot.transport.ssid;
+      $("#transport-pass").textContent=snapshot.transport.password_hint;
+
+      const inspectionTone=snapshot.inspection.scan_in_progress?"warn":(snapshot.inspection.post_passed?"good":snapshot.inspection.scan_completed?"warn":"info");
+      const inspectionText=snapshot.inspection.scan_in_progress?"Taranıyor":snapshot.inspection.post_passed?"POST Geçti":snapshot.inspection.scan_completed?"Dikkat Gerekli":"Beklemede";
+      pill("inspection-pill",inspectionText,inspectionTone);
+      $("#inspection-summary").textContent=snapshot.inspection.last_scan_summary;
+      $("#inspection-time").textContent=snapshot.inspection.last_scan_at;
+      $("#inspection-result").textContent=snapshot.inspection.post_passed?"Başarılı":snapshot.inspection.scan_completed?"Dikkat Gerekli":"Beklemede";
+      $("#inspection-scan").disabled=!!snapshot.tests.running || snapshot.inspection.scan_in_progress;
+
+      $("#manual-motor").checked=snapshot.inspection.manual_checks.motor_driver_wired;
+      $("#manual-mic").checked=snapshot.inspection.manual_checks.microphone_wired;
+      $("#manual-speaker").checked=snapshot.inspection.manual_checks.speaker_wired;
+      $("#limitations-list").innerHTML=(snapshot.inspection.limitations||[]).map(item=>`<li>${item}</li>`).join("");
+      renderPins(snapshot.inspection.pins);
+
+      $("#pet-touch").textContent=snapshot.sensors.pet_touch?"HIGH":"LOW";
+      $("#record-touch").textContent=snapshot.sensors.record_touch?"HIGH":"LOW";
+      $("#pet-touch-seen").textContent=snapshot.sensors.pet_touch_seen?"Evet":"Hayır";
+      $("#record-touch-seen").textContent=snapshot.sensors.record_touch_seen?"Evet":"Hayır";
+      $("#display-ready").textContent=snapshot.sensors.display_ready?"Hazır":"Yok / Bekleniyor";
+      $("#audio-in-ready").textContent=snapshot.sensors.audio_in_placeholder_ready?"Hazır":"Bekleniyor";
+      $("#audio-out-ready").textContent=snapshot.sensors.audio_out_placeholder_ready?"Hazır":"Bekleniyor";
+      $("#display-message").textContent=snapshot.sensors.display_message;
+
+      pill("fault-pill",snapshot.overview.fault?"Fault":"Temiz",snapshot.overview.fault?"bad":"info");
+      $("#fault-detail").textContent=snapshot.overview.fault||"Aktif fault yok.";
+
+      $("#motor-command").textContent=`${translate("motion",snapshot.motors.command)} / ${translate("source",snapshot.motors.source)}`;
+      $("#left-output").textContent=num(snapshot.motors.left_output);
+      $("#right-output").textContent=num(snapshot.motors.right_output);
+      fill("left-fill",snapshot.motors.left_output);
+      fill("right-fill",snapshot.motors.right_output);
+      $("#gpio-in1").textContent=snapshot.motors.gpio.in1?"HIGH":"LOW";
+      $("#gpio-in2").textContent=snapshot.motors.gpio.in2?"HIGH":"LOW";
+      $("#gpio-in3").textContent=snapshot.motors.gpio.in3?"HIGH":"LOW";
+      $("#gpio-in4").textContent=snapshot.motors.gpio.in4?"HIGH":"LOW";
+
+      renderTests(snapshot);
+      applyMotionAvailability(snapshot);
+
+      pill("gamepad-state",snapshot.gamepad.connected?"Bağlı":"Bağlı Değil",snapshot.gamepad.connected?"good":"info");
+      $("#gamepad-id").textContent=snapshot.gamepad.id||"Bekleniyor";
+      $("#gamepad-drive-enabled").checked=snapshot.gamepad.driving_enabled;
+      for(let i=0;i<4;i+=1){$(`#axis-${i}`).textContent=num(snapshot.gamepad.axes[i]||0)}
+      $("#buttons-preview").textContent=JSON.stringify((snapshot.gamepad.buttons||[]).slice(0,8).map(v=>Number(v).toFixed(2)));
+
+      renderTelemetry(snapshot.telemetry);
+    }
+
+    async function syncGamepad(){
+      const pads=navigator.getGamepads?navigator.getGamepads():[];
+      const pad=pads&&pads[0];
+      const enabled=$("#gamepad-drive-enabled").checked;
+      if(!pad){
+        render(await api.gamepad({connected:false,driving_enabled:enabled,id:null,axes:[],buttons:[]}));
+        return;
+      }
+
+      render(await api.gamepad({
+        connected:true,
+        driving_enabled:enabled,
+        id:pad.id,
+        axes:Array.from(pad.axes||[]),
+        buttons:Array.from(pad.buttons||[]).map(button=>button.value)
+      }));
+    }
+
+    document.addEventListener("click",async event=>{
+      const actionButton=event.target.closest("[data-action]");
+      if(actionButton){
+        render(await api.motor(actionButton.dataset.action));
+        return;
+      }
+
+      const testButton=event.target.closest("[data-test]");
+      if(testButton){
+        render(await api.test(testButton.dataset.test));
+      }
+    });
+
+    $("#inspection-scan").addEventListener("click",async()=>render(await api.inspectionScan()));
+    $("#reset-idle").addEventListener("click",async()=>render(await api.system("reset_idle")));
+    $("#emergency-stop").addEventListener("click",async()=>render(await api.system("emergency_stop")));
+    $("#apply-arcade").addEventListener("click",async()=>render(await api.arcade(Number($("#throttle-slider").value)/100,Number($("#turn-slider").value)/100)));
+    $("#throttle-slider").addEventListener("input",event=>$("#throttle-value").textContent=num(Number(event.target.value)/100));
+    $("#turn-slider").addEventListener("input",event=>$("#turn-value").textContent=num(Number(event.target.value)/100));
+    ["#manual-motor","#manual-mic","#manual-speaker"].forEach(selector=>{
+      $(selector).addEventListener("change",async()=>render(await api.inspectionManual(manualPayload())));
+    });
+    $("#gamepad-drive-enabled").addEventListener("change",()=>syncGamepad().catch(console.error));
+    window.addEventListener("gamepadconnected",()=>syncGamepad().catch(console.error));
+    window.addEventListener("gamepaddisconnected",()=>syncGamepad().catch(console.error));
+
+    setInterval(()=>api.heartbeat().then(render).catch(console.error),2500);
+    setInterval(()=>api.state().then(render).catch(console.error),900);
+    setInterval(()=>syncGamepad().catch(console.error),180);
+    api.state().then(render).catch(console.error);
+  </script>
+</body>
+</html>
